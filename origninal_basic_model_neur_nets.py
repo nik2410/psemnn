@@ -94,21 +94,45 @@ with open(filename,'r', encoding='utf8') as infile:
 
 
 for i,(k,v) in enumerate(example_data.items()):
+    #print(v.get("tokens"))
     tokens = v.get('tokens')
     tokens = [token.lower() for token in tokens]
     example_data[k]['tokens'] = tokens
+    #key is txtname
 
 # split 80 20 in train and test tokens
-print(len(example_data))
+train_test_ratio = 0.85
+len_dataset = len(example_data) -1
 
-raise Error
+split_size = len_dataset * train_test_ratio
+print(split_size)
 
-train_tokens = [v['tokens'] for k,v in example_data.items()]
+#train_tokens = [v['tokens'] for i,(k,v) in  enumerate(example_data.items())]
+#print(train_tokens)
+train_tokens = []
+test_tokens = []
+for i,(k,v) in  enumerate(example_data.items()):
+    if i < split_size: 
+      train_tokens.append(v['tokens']) 
+    else:
+      test_tokens.append(v['tokens'])
+#print(train_tokens)
+print("train")
+
+# raise Error
 
 # this should be chagend: start
 # this should be chagend: end
 train_labels = list()
+test_labels = list()
 train_labels_uncertainty = list()
+for i,(k,v) in enumerate(example_data.items()):
+    curr_users = [s for s in v.keys() if s !='tokens']
+    if i < split_size:
+      train_labels.append(v[curr_users[0]][extraction_of])
+    else:
+      test_labels.append(v[curr_users[0]][extraction_of])
+'''
 for k,v in example_data.items():
     curr_users = [s for s in v.keys() if s !='tokens']
     
@@ -117,9 +141,10 @@ for k,v in example_data.items():
     # for illlustration only the annotation of one user is used here -> curr_users[0]
     train_labels.append(v[curr_users[0]][extraction_of])
     train_labels_uncertainty.append(v[curr_users[0]][extraction_of+'_uncertainty'])
+'''
 # this has to be changed (start)!!!! right now, train and test sets are the same
-test_tokens = train_tokens
-test_labels = train_labels
+# test_tokens = train_tokens
+# test_labels = train_labels
 # this has to be changed (end)
 
 # generate vocabulary,token ids and embeddings for vocabulary
@@ -177,16 +202,16 @@ embedding_layer = Embedding(vocab_size, 300, weights=[embedding_vectors], input_
 # ...
 
 # this last layer can/should be modified
-output_layer = TimeDistributed(Dense(n_tags, activation="softmax"))(embedding_layer)
+output_layer = TimeDistributed(Dense(n_tags, activation="elu"))(embedding_layer)
 
 model = Model(inputs=input_layer, outputs=output_layer)
-model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["categorical_accuracy"])
+model.compile(loss="mean_squared_error", optimizer="adam", metrics=["categorical_accuracy"])
 model.summary()
 
 # fit model on train data
 model.fit(x_train, y_train,
           batch_size=128,
-          epochs=10)
+          epochs=500)
 
 ## evaluation
 # predict labels of test data
