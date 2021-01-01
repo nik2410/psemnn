@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 from tensorflow.keras.utils import to_categorical
 
+np.random.seed(1234567890)
+
 class PerformanceViewer(object):
     
     def __init__(self):
@@ -54,9 +56,9 @@ class PerformanceViewer(object):
     # instead of metric (precision,recall,f1)
     def evalModelTrainDataClass(self):
         for i in range(len(self.plot_precision_class)):
-            plt.plot(plot_epoch, self.plot_precision_class[i], label = "Precision")
-            plt.plot(plot_epoch, self.plot_recall_class[i], label = "Recall")
-            plt.plot(plot_epoch, self.plot_f1_class[i], label = "F1")
+            plt.plot(self.plot_epoch, self.plot_precision_class[i], label = "Precision")
+            plt.plot(self.plot_epoch, self.plot_recall_class[i], label = "Recall")
+            plt.plot(self.plot_epoch, self.plot_f1_class[i], label = "F1")
             plt.title("Class "+convertIdToClass(i))
             plt.xlabel('Epochs')
             plt.ylabel('Performance')

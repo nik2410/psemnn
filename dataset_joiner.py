@@ -5,6 +5,8 @@ import os
 import zipfile
 import pickle
 
+np.random.seed(1234567890)
+
 class DatasetWorker(object):
     #init the worker with the dataset (in our case its the example_data)
     def __init__(self, _dataset):
