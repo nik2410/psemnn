@@ -15,7 +15,8 @@ class DatasetWorker(object):
         self.train_test_split = 0.8
         self.split_size = 0
         
-        self.extraction_of = ""
+        #default extraction is sentiments
+        self.extraction_of = "sentiments"
         
         self.train_tokens = []
         self.test_tokens = []
@@ -23,8 +24,10 @@ class DatasetWorker(object):
         self.train_labels = list()
         self.test_labels = list()
         self.train_labels_uncertainty = list()
-    #define here extraction of sentiment, aspect or modifier
-    def setExtractionOf(self,to_extract):
+        
+    # define here extraction of sentiment, aspect or modifier
+    # only once at a time
+    def setExtractionOf(self, to_extract):
         self.extraction_of = to_extract
         
     def applyPreprocessing(self):
@@ -32,28 +35,42 @@ class DatasetWorker(object):
         self.dataset = preprocessor.tokenizeDataset(self.dataset)
         
     #configure train test split ratio, default is 0.8
-    def setTrainTestSplitRatio(self, _t_t_param):
-        self.train_test_split = _t_t_param
-        print("set train test split ratio to "+str(self_train_test_split))
+    def setTrainTestSplitRatio(self, ratio):
+        self.train_test_split = ratio
+        print("maunally set train test split ratio to "+str(self.train_test_split))
     
-    #split the tokens (words) into litst of train and test tokens
+    # split the tokens (words) into litst of train and test tokens
+    # if we split with every_reviewer, we need the same sentences multiple times
         
-    def splitDatasetTokens(self):
+    def splitDatasetTokens(self, split_by):
+        
         len_dataset = len(self.dataset) - 1
         self.split_size = round(len_dataset * self.train_test_split)
         for i, (k,v) in tqdm(enumerate(self.dataset.items()), desc="split dataset tokens"):
-            if i < self.split_size:
-                self.train_tokens.append(v["tokens"])
-            else:
-                self.test_tokens.append(v["tokens"])
-    #param split_by
-    # union -> always use the sentiment labeling of every user, even if only 1 out of n users
+            curr_users = [s for s in v.keys() if s != "tokens"]
+            insertMul = 1
+            #if we need each sentence multiple times, we overwrite
+            if split_by in ["every_review"]:
+                insertMul = len(curr_users)
+            
+            for doTimes in range(insertMul):
+                if i < self.split_size:
+                    self.train_tokens.append(v["tokens"])
+                else:
+                    self.test_tokens.append(v["tokens"])
+        
+        
+    # param split_by 
+    # 1. one_agrees -> always use the sentiment labeling of every user, even if only 1 out of n users
     # labeled the token as sentiment
-    def splitDatasetLabels(self, split_by):
+    # 2. all_agree -> only use label if all reviewers agreed on the label
+    # 3. every_review -> treat every review as its own and dont merge labels
+    def splitDataset(self, split_by):
+        self.splitDatasetTokens(split_by)
         for d_idx, (k,v) in tqdm(enumerate(self.dataset.items()), desc="split dataset labels"):
             curr_users = [s for s in v.keys() if s != "tokens"]
             
-            if split_by == "union":
+            if split_by == "one_agrees":
                 merged_label = []
                 for i in range(len(v["tokens"])):
                     merged_label.insert(i, "O")
@@ -67,6 +84,50 @@ class DatasetWorker(object):
                     self.train_labels.append(merged_label)
                 else:
                     self.test_labels.append(merged_label)
+                    
+            #split_by operation inner_join
+            #only if all reviewers agreed on a label, we add the label
+            elif split_by == "all_agree":
+                merged_label = []
+                for token_idx in range(len(v["tokens"])):
+                    #print("token "+str(token_idx))
+                    matching = True
+                    #init on value of first user
+                    holder = v[curr_users[0]][self.extraction_of][token_idx]
+                    #only if all users have the same value, we insert the value
+                    for user_idx in range(len(curr_users)):
+                        #print("holder: "+holder)
+                        #print("current choice "+ str(v[curr_users[user_idx]][extraction_of][token_idx]))
+                        if not v[curr_users[user_idx]][self.extraction_of][token_idx] == holder:
+                            matching = False
+                    #means all users had the same labeling, so we can insert it
+                    if matching:
+                        merged_label.insert(token_idx, v[curr_users[0]][self.extraction_of][token_idx])
+                    else:
+                        #otherwise insert O
+                        merged_label.insert(token_idx, "O")
+                if d_idx < self.split_size:
+                  self.train_labels.append(merged_label)
+                else:
+                  self.test_labels.append(merged_label)
+            
+            #use every review on its own as input
+            elif split_by == "every_review":
+                #jetzt jeden user durchgehen und dessen labels anschauen -> wenn irgendwas außer "O", dann 
+                #den oben erstellten array an dieser stelle mit dessen label ersetzen
+                for usr in curr_users:
+                    #print(usr)
+                    #print(v[usr][extraction_of])
+                    if d_idx < self.split_size:
+                      #davor v[curr_users[0]][extraction_of], jetzt merged_label
+                      self.train_labels.append(v[usr][self.extraction_of])
+                    else:
+                      self.test_labels.append(v[usr][self.extraction_of])
+            else:
+                print(split_by)
+                raise ValueError('split_by operator not defined!')
+    
+    #make sure that every sentence is of the same length
     def buildDatasetSequence(self,max_seq_length):
         self.train_tokens = [t[0:max_seq_length] for t in tqdm(self.train_tokens, desc="update train tokens")]
         self.test_tokens = [t[0:max_seq_length] for t in tqdm(self.test_tokens, desc="update test tokens")]
