@@ -139,6 +139,54 @@ class PerformanceViewer(object):
         print("Recall "+"{:.3f}".format(recall))
         print("F1-measure "+"{:.3f}".format(f1))
         
+        
+    def ClassificationReview(self, model, ds, vw, x_test, y_test):
+        
+        # predict labels of test data
+        y_test_pred_prob = model.predict(x_test)
+        y_test_pred_sparse = y_test_pred_prob.argmax(axis=-1)
+        y_test_pred = to_categorical(np.array(y_test_pred_sparse), num_classes=vw.n_tags)
+        
+        #create list with true_class, pred_class and token
+        sentimentMatrix = []
+        class_list= []
+        for i,tokens in enumerate(ds.test_tokens):
+            for j,token in enumerate(tokens):
+                class_list.append(token)
+                class_true = y_test[i,j].argmax()
+                class_pred = y_test_pred[i,j].argmax()
+                class_list.append(class_true)
+                class_list.append(class_pred)
+                
+                if class_true == class_pred:
+                    class_list.append("True")
+                else:
+                    class_list.append("False")
+                       
+                sentimentMatrix.append(class_list)
+                class_list=[]
+
+        sen_matrix = pd.DataFrame(sentimentMatrix, columns=["token", "true_class", "pred_class", "prediction"])
+        
+        #Class Ids to Class names
+        for x in sen_matrix.index:
+            if sen_matrix.loc[x, "true_class"] == 0:
+                sen_matrix.loc[x, "true_class"] = "B_S"
+            elif sen_matrix.loc[x, "true_class"] == 1:
+                sen_matrix.loc[x, "true_class"] = "I_S"
+            elif sen_matrix.loc[x, "true_class"] == 2:
+                sen_matrix.loc[x, "true_class"] = "O"
+                
+        for x in sen_matrix.index:
+            if sen_matrix.loc[x, "pred_class"] == 0:
+                sen_matrix.loc[x, "pred_class"] = "B_S"
+            elif sen_matrix.loc[x, "pred_class"] == 1:
+                sen_matrix.loc[x, "pred_class"] = "I_S"
+            elif sen_matrix.loc[x, "pred_class"] == 2:
+                sen_matrix.loc[x, "pred_class"] = "O"
+                
+        return sen_matrix
+        
 #callback for checking performance after each epoch
 class TrainingEval(tf.keras.callbacks.Callback):
     # This function is called when the training begins
