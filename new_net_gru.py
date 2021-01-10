@@ -64,7 +64,7 @@ ds.applyPreprocessing()
 # (data the net does not see while training)
 ds.setTrainTestSplitRatio(0.9)
 #options for splitDataset = all_agree, one_agrees, every_review
-ds.splitDataset("one_agrees")
+ds.splitDataset("every_review")
 ds.buildDatasetSequence(max_seq_length)
 ds.describe()
 
