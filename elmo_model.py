@@ -37,7 +37,7 @@ def load_embedding(example_data,dim=1024):
         #elmo_tokens= ['i', 'like', 'my', 'computer', '.']
         
         i=0
-        for token in v['token']:
+        for token in v['tokens']:
             embedding[token]=dict()
             embedding[token]['vector']= elmo_vector[i].reshape(-1,1).flatten()
             embedding[token]['token_id']=int(token_id)
